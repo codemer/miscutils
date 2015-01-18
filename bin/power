@@ -1,0 +1,4 @@
+#!/bin/sh
+
+upower -i /org/freedesktop/UPower/devices/line_power_ADP0 | grep 'online' | sed -e 's/online:   /plugged in:/'
+upower -i /org/freedesktop/UPower/devices/battery_BAT0 | grep -E "state|time to|percentage"
