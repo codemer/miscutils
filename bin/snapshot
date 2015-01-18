@@ -1,0 +1,19 @@
+#!/bin/sh
+
+dir=$1
+if [ "$dir" = '' ] ; then
+    echo "Must specify a directory"
+    exit
+fi
+if [ "$dir" = '.' ] ; then
+    dir=`pwd`
+fi
+ts=`date +%Y%m%d%H%M`
+shortdir=`basename $dir`
+snapshots=$HOME/snapshots
+target=$snapshots/$shortdir.$ts
+
+mkdir -p $snapshots
+echo "Snapshotting $shortdir..."
+time cp -al $dir/ $target/
+
