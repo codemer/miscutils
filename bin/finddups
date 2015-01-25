@@ -1,0 +1,57 @@
+#!/usr/bin/env ruby
+#
+# Quick and dirty search for duplicate files in a directory tree based on file
+# name and size.
+#
+# Wishlist:
+# - Add hash of "duplicate" file contents to check whether they are really
+#   duplicates.
+
+FileInfoStruct = Struct.new(:path, :size, :date)
+
+def main(args)
+  args << '.' if args.empty?
+  if args[0] == '-h' || args[0] == '--help'
+    puts <<EOT
+Usage:
+  finddups <path1> [.. pathn]
+
+Description:
+  Find duplicate files in a directory tree based on name and size.
+
+EOT
+    return
+  end
+
+  find_dups(args)
+end
+
+def find_dups(dirs)
+  files = Hash.new{|h,k| h[k] = [] }
+  # Cycle through all the files in the requested directories
+  dirs.each do |dir|
+    Dir[File.join(dir, '**/*')].each do |file|
+      next if File.directory?(file) || File.symlink?(file)
+      s = File.stat(file)
+      f = File.basename(file)
+      k = "#{f}-#{s.size}"
+      fi = FileInfoStruct.new(file, s.size, s.mtime)
+      files[k] << fi
+    end
+  end
+  # Cycle through all the "unique" files to identify duplicates
+  counter = 0
+  files.keys.sort.each do |k|
+    next if files[k].size < 2
+    counter += 1
+    puts "===> #{k}"
+    files[k].each do |fi|
+      puts sprintf("%56s  %s", fi.path, fi.date)
+    end
+  end
+  if counter > 0
+    puts "Found #{counter} dup(s)"
+  end
+end
+
+main(ARGV)
