@@ -1,0 +1,124 @@
+#!/usr/bin/env ruby
+#
+# gem install levenshtein-ffi
+# gem install levenshtein
+
+require 'optparse'
+require 'find'
+require 'levenshtein'
+
+####################################################################
+def parse_opts(args)
+  cfg = {
+    musicdir: File.join(ENV['HOME'],'Music'),
+    playlistdir: File.join(ENV['HOME'],'Music/Playlists'),
+    playlist: nil,
+    replace: false
+  }
+  parser = OptionParser.new(args) do |parser|
+    parser.banner = 'USAGE: rebuild-playlist <path-to-old-playlist>'
+    parser.separator <<EOT
+
+DESCRIPTION
+-----------
+
+This tool attempts to rebuild an m3u playlist using the current Music library
+where tag information was fixed and the directory structure slightly altered.
+The m3u playlist must already contain relative paths.
+
+OPTIONS
+-------
+EOT
+
+    parser.on('-h', '--help', 'Show this message') do
+      puts parser
+      exit
+    end
+
+    parser.on('-M', '--music DIR', 'Specify music directory [default: ~/Music]') do |x|
+      cfg[:musicdir] = x
+    end
+
+    parser.on('-P', '--playlist DIR', 'Specify playist directory [default: ~/Music/Playlist]') do |x|
+      cfg[:playlistdir] = x
+    end
+
+    parser.on('-r', '--replace', 'Replace the existing playlist [default: append]') do
+      cfg[:replace] = true
+    end
+
+    parser.separator <<EOT
+
+Examples:
+
+rebuild-playlist import/awesome-mix.m3u
+EOT
+  end
+  
+  begin
+    parser.parse!
+  rescue OptionParser::InvalidOption => e
+    STDERR.puts "#{e.message}\n\n"
+    puts parser
+    exit
+  end
+
+  if args.empty?
+    puts parser
+    exit
+  end
+
+  cfg[:playlist] = args.shift
+  cfg
+end
+
+####################################################################
+def load_music_dir(dir)
+  raise "Could not find music dir '#{dir}'" unless File.exists?(dir)
+  files = []
+  Find.find(dir) do |path|
+    if File.basename(path).match(/^\./)
+      Find.prune
+    else
+      next if File.directory?(path) || !path.match(/\.(mp3|m4a)/)
+      files << path
+    end
+  end
+  files
+end
+
+####################################################################
+def sanitize_song(song)
+  song.sub(/^@\//,'').sub(/^compilations?\//i,'').sub(/\s*\((album|radio|explicit|bonus|single).*?\)/i,'').sub(/\s*\[explicit\]/i,'')
+end
+
+####################################################################
+def find_matches(entry, music)
+  potentials = []
+  music.each do |song|
+    dist = Levenshtein.normalized_distance(sanitize_song(entry), sanitize_song(song))
+    #puts sprintf("  %0.3f  %s", dist, song)
+    potentials << {song:song,dist:dist} if dist <= 0.40
+  end
+  potentials.sort!{|a,b|a[:dist]<=>b[:dist]}
+  potentials[0..1]
+end
+
+####################################################################
+def main(args)
+  cfg = parse_opts(args)
+  music = load_music_dir(cfg[:musicdir]).map{|x| x.sub("#{cfg[:musicdir]}/", '')}
+  raise "File not found: #{cfg[:playlist]}" unless File.exists?(cfg[:playlist])
+  old_playlist = File.read(cfg[:playlist]).split(/\n/)
+  File.open(File.join(cfg[:playlistdir], File.basename(cfg[:playlist])), cfg[:replace] ? 'w' : 'a') do |fh|
+    old_playlist.each do |entry|
+      puts "===> #{entry}"
+      matches = find_matches(entry, music)
+      matches.each {|x| puts sprintf("  %0.3f  %s", x[:dist], x[:song])}
+      fh.puts matches[0][:song] unless matches.empty?
+      STDOUT.flush
+    end
+  end
+end
+
+main(ARGV)
