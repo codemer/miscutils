@@ -1,0 +1,23 @@
+#!/usr/bin/env ruby
+require 'colored'
+
+count = 0
+ARGV.each do |file|
+  File.open(file, 'r') do |f|
+    lineno = 1
+    while line = f.gets
+      if line.match(/\b(\w+)\s+\1\b/)
+        word = $1
+        line = line.sub(/\b#{word}(\s+)#{word}\b/, "#{word.red}\\1#{word.red}")
+        puts "Found duplicate:#{file}:#{lineno}: #{line}"
+        count += 1
+      end
+      lineno += 1
+    end
+  end
+end
+
+if count > 0
+  STDERR.puts "Found #{count} instance(s) of duplicate words"
+  exit 1
+end
