@@ -1,0 +1,109 @@
+#!/usr/bin/env ruby
+
+require 'optparse'
+require 'ostruct'
+require 'fileutils'
+
+class OrderSongs
+
+  VERSION = '0.01'
+
+  def initialize
+    @options = OpenStruct.new(
+      sourcedir: nil,
+      targetdir: '.',
+      verbose: false,
+      dryrun: false
+    )
+  end
+
+  def parse(args)
+    opts = OptionParser.new(args) do |p|
+      p.banner = "order-song -s <sourcedir>"
+
+      p.separator ''
+      p.separator 'Options:'
+
+      p.on('-s', '--source DIR', "Source directory of songs") do |s|
+        @options.sourcedir = s
+      end
+
+      p.on('-t', '--target DIR', "Target directory to move files") do |t|
+        @options.targetdir = t
+      end
+
+      p.on('-n', '--dryrun', "Perform a dry run without moving any files") do
+        @options.verbose = true
+        @options.dryrun = true
+      end
+
+      p.on('-v', '--verbose', "Enable verbose messages") do
+        @options.verbose = true
+      end
+
+      p.separator ''
+
+      p.on_tail('-h', '--help', "Print this help message") do
+        puts p
+        exit
+      end
+
+      p.on_tail('-V', '--version', "Print version and exit") do
+        puts VERSION
+        exit
+      end
+
+      p.parse!
+
+      if @options.sourcedir.nil?
+        STDERR.puts "You must specify a source directory\n\n"
+        puts p
+        exit
+      end
+      p
+    end
+  end
+
+  def do_moves
+    files = Dir[File.join(@options.sourcedir, '*.mp3')]
+    puts "Found #{files.size} files to move" if @options.verbose
+    files.each do |file|
+      props = get_mp3_props(file)
+      artist = props['Album/Performer']
+      raise RuntimeError.new("Could not identify artist for #{file}") unless artist
+      album = props['Album']
+      raise RuntimeError.new("Could not identify album for #{file}") unless album
+      album.gsub(/[\/\\]/, '_')
+      targetdir = File.join(@options.targetdir, artist, album)
+      FileUtils.mkdir_p(targetdir) unless @options.dryrun
+      puts "#{file} => #{targetdir}" if @options.verbose
+      File.rename(file, File.join(targetdir, File.basename(file))) unless @options.dryrun
+    end
+  end
+
+  def escape_path(p)
+    p.gsub(/"/, '\\"')
+  end
+
+  def get_mp3_props(file)
+    lines = `mediainfo "#{escape_path(file)}"`.split(/\n/)
+    h = {}
+    lines.each do |line|
+      line.strip!
+      next if line.empty?
+      k,v = line.split(':', 2)
+      next if v.nil?
+      k.strip!
+      v.strip!
+      h[k] = v
+    end
+    h
+  end
+
+  def run(args)
+    parse(args)
+    do_moves
+  end
+end
+
+OrderSongs.new.run(ARGV)
