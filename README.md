@@ -9,3 +9,4 @@ Random collection of scripts and utilities
 * rebuild-playlist - Restore an m3u playlist when the music directory structure has changed a bit.
 * snapshot - Create snapshot of the specified directory in $HOME/snapshots using hard-links.
 * wiktionary-lookup.rb - Look up a word in wiktionary.  Must have w3m installed on path.
+* wordfreq - Count the number of uses of each word in one or more text documents.

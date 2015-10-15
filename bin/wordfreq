@@ -1,0 +1,53 @@
+#!/usr/bin/env ruby
+
+class WordFreq
+  def initialize
+    @words = Hash.new {|h,k| h[k] = 0}
+    @total_count = 0
+  end
+
+  def cleanup_word(word)
+    w = word.dup
+    w.gsub!(/[<>()\[\]\\#$%\/"+“”,©]/, '')
+    w.gsub!(/^[*'"‘“]/, '')
+    w.gsub!(/[*'"’”]$/, '')
+    w.gsub!(/[,\.;:?!]+$/, '')
+    w.gsub!(/^[*'"]/, '')
+    w.gsub!(/[*'"]$/, '')
+    w.gsub!(/^\d+-/, '')
+    w.gsub!(/^-+/, '')
+    w.gsub!(/-+$/, '')
+    w
+  end
+
+  def read_file(file)
+    File.read(file).split(/[\s\n—-]+/).each do |word|
+      word = cleanup_word(word)
+      next if word.empty? || word.match(/^-+$/) || word.match(/^=+$/) || word == '!--' || word.match(/^\d+$/)
+      next if word.match(/^www\./)
+      word = word.downcase
+      @words[word] += 1
+      @total_count += 1
+    end
+  end
+
+  def run(args)
+    args.each do |file|
+      read_file(file)
+    end
+    a = @words.map {|k,v| {word: k, count: v} }
+    a.sort! {|a,b| a[:count] == b[:count] ? (a[:word] <=> b[:word]) : (a[:count] > b[:count] ? -1 : 1) }
+    singles = 0
+    a.each do |p|
+      puts "#{sprintf('%-20s: %u', p[:word], p[:count])} (#{sprintf('%.1f%%', p[:count].to_f/@total_count.to_f*100)})"
+      singles += 1 if p[:count] == 1
+    end
+
+    puts "========================"
+    puts "Unique words: #{a.size}"
+    puts "Used once:    #{singles} (#{sprintf('%.1f%%', singles/@total_count.to_f*100)})"
+    puts "Total words:  #{@total_count}"
+  end
+end
+
+WordFreq.new.run(ARGV)
