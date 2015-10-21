@@ -1,0 +1,62 @@
+#!/usr/bin/env ruby
+
+class PhraseFreq
+  def initialize
+    @fragments = Hash.new {|h,k| h[k] = 0}
+    @total_count = 0
+    @sentence_count = 0
+  end
+
+  def read_file(file)
+    doc = File.read(file).gsub(/\n+/, ' ').split(/([\.!?]+\s+|[:;]\s+|"|<!--|-->)|\s*--\s*/)
+    doc.each do |s|
+      s = s.chomp.strip
+      next if %w(. ? ! " : ; <!-- -->).include?(s)
+      next if s.empty?
+      process_sentence(s)
+    end
+  end
+
+  def process_sentence(s)
+    s.sub!(/[,\.?!]$/, '')
+    words = s.split(/\s+/)
+    @sentence_count += 1
+    return if words.size == 1
+    (0..(words.size-2)).each do |i|
+      f = words[i]
+      f.sub!(/,$/, '')
+      f.downcase! unless f == 'I'
+      ((i+1)..(words.size-1)).each do |o|
+        break if o-i >= 7
+        words[o].sub!(/,$/, '')
+        words[o].downcase! unless words[o] == 'I'
+        f += ' ' + words[o]
+        @fragments[f] += 1
+        @total_count += 1
+        # puts f
+      end
+    end
+  end
+
+  def run(args)
+    args.each do |file|
+      read_file(file)
+    end
+    a = @fragments.map {|k,v| {fragment: k, count: v} }
+    a.sort! {|a,b| a[:count] == b[:count] ? (a[:fragment] <=> b[:fragment]) : (a[:count] > b[:count] ? -1 : 1) }
+    singles = 0
+    a.each do |p|
+      if p[:count] == 1
+        singles += 1
+        next
+      end
+      puts "#{sprintf('%-64s: %u', p[:fragment], p[:count])} (#{sprintf('%.1f%%', p[:count].to_f/@total_count.to_f*100)})"
+    end
+    puts "========================"
+    puts "Unique fragments: #{a.size}"
+    puts "Used once:        #{singles} (#{sprintf('%.1f%%', singles/@total_count.to_f*100)})"
+    puts "Sentences:        #{@sentence_count}"
+  end
+end
+
+PhraseFreq.new.run(ARGV)
