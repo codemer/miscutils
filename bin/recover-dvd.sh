@@ -1,4 +1,6 @@
 #!/bin/sh
+#
+# reference: https://sumofungus.wordpress.com/2010/01/19/making-backup-copies-of-damaged-dvds-using-ddrescue/
 
 device=$1
 name=$2
