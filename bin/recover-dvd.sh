@@ -29,6 +29,7 @@ echo $ddrescue -d -r 3 -R $dvd "$name.iso" "$name.log"
 $ddrescue -d -r 3 -R $dvd "$name.iso" "$name.log"
 
 echo "===> Complete"
-echo "Note, it may help to manually rerun step 3, removing and reinserting disc"
-echo "between attempts.  It may also help to rerun the rescue moving the damaged disc"
-echo "to a different drive."
+echo "
+Note, it may help to run this script multiple times, removing and reinserting
+disc between attempts.  It may also help to rerun the rescue moving the damaged
+disc to a different drive."
