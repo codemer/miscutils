@@ -3,25 +3,35 @@
 # Use adb to recursively sync directories from the Android device to a local directory
 
 require 'fileutils'
+require 'date'
 
 def run(cmd)
   puts("!#{cmd}")
   result = `#{cmd} 2>&1`
   raise "#{result}\nCommand failed: #{cmd}: exit #{$?.to_i}" if $?.to_i != 0
-  return result.split(/\n/)
+  result.split(/\n/)
 end
 
 def remote_ls_files(path, recursive=false)
   files = Array.new
-  run("adb shell ls -l #{path}").each do |line|
-    perms, blocks, owner, group, size, date, time, file = line.split(/\s+/, 8)
-    next if perms == 'total'
-    if perms.match(/^d/)
-      files += remote_ls_files(File.join(path, file), true)
-    else
-      file = File.join(path, file)
-      files.push(size: size.to_i, date: date, time: time, name: file)
+  begin
+    run("adb shell ls -l #{path}").each do |line|
+      perms, blocks, owner, group, size, date, time, file = line.split(/\s+/, 8)
+      link = nil
+      next if perms == 'total'
+      if perms.match(/^l/)
+        file, link = file.split(/\s+->\s+/, 2)
+        raise "Failed to read link for '#{file}'" unless link
+      end
+      if perms.match(/^d/)
+        files += remote_ls_files(File.join(path, file), true)
+      else
+        file = File.join(path, file)
+        files.push(size: size.to_i, time: DateTime.parse("#{date} #{time}").to_time, name: file, link: link)
+      end
     end
+  rescue RuntimeError => e
+    STDERR.puts "(#{e.class.inspect}) Could not read directory: #{path}"
   end
   files
 end
@@ -45,9 +55,10 @@ def main(args)
   # Get a directory listing and start copying files
   remote_ls_files(fromdir, true).each do |file|
     tofile = File.join(todir, file[:name])
-    if File.exist?(tofile) && File.stat(tofile).size == file[:size]
+    # FIXME: We should also check the timestamp
+    if File.exist?(tofile) && (file[:link] || File.stat(tofile).size == file[:size])
       # Skip file when it already exists and is the same size
-      puts "Skipping #{tofile}..."
+      # puts "Skipping #{tofile}..."
       skip_count += 1
       next
     end
@@ -55,10 +66,15 @@ def main(args)
     # Make sure the target directory exists
     FileUtils.mkdir_p(File.dirname(tofile))
     begin
-      # Copy the file
-      run("adb pull #{file[:name]} #{tofile}");
-      copy_count += 1
-    rescue => e
+      if file[:link]
+        puts "unsupported link: #{file[:link]}"
+      else
+        # Copy the file
+        run("adb pull #{file[:name]} #{tofile}");
+        File.utime(file[:time], file[:time], tofile)
+        copy_count += 1
+      end
+    rescue RuntimeError => e
       # remove tofile if it exists since it is probably corrupt anyway
       File.unlink(tofile) if File.exist?(tofile)
       STDERR.puts("Failed to copy #{file[:name]}")
