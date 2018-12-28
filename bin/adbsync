@@ -43,7 +43,7 @@ def main(args)
     puts "Must specify source dir on device"
     exit 1
   end
-  copy_count = fail_count = skip_count = 0
+  copy_count = link_count = fail_count = skip_count = 0
 
   # Make sure a device is plugging in before proceding
   output = run('adb devices')
@@ -67,7 +67,9 @@ def main(args)
     FileUtils.mkdir_p(File.dirname(tofile))
     begin
       if file[:link]
-        puts "unsupported link: #{file[:link]}"
+        puts "Linking #{file[:name]} -> #{file[:link]}"
+        File.symlink(file[:link], file[:name])
+        link_count += 1
       else
         # Copy the file
         run("adb pull #{file[:name]} #{tofile}");
@@ -82,6 +84,7 @@ def main(args)
     end
   end
   puts "Copied #{copy_count} files"
+  puts "Created #{link_count} links"
   puts "Skipped #{skip_count} previously copied files" if skip_count > 0
   STDERR.puts "Failed to copy #{fail_count} files" if fail_count > 0
 end
