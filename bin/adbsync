@@ -12,10 +12,16 @@ def run(cmd)
   result.split(/\n/)
 end
 
+def escape_string(s)
+  return s unless s.match(/[ #']/)
+  s = "\\\"#{s}\\\""
+  s
+end
+
 def remote_ls_files(path, recursive=false)
   files = Array.new
   begin
-    run("adb shell ls -l #{path}").each do |line|
+    run("adb shell \"ls -l #{escape_string(path)}\"").each do |line|
       perms, blocks, owner, group, size, date, time, file = line.split(/\s+/, 8)
       link = nil
       next if perms == 'total'
@@ -31,7 +37,7 @@ def remote_ls_files(path, recursive=false)
       end
     end
   rescue RuntimeError => e
-    STDERR.puts "(#{e.class.inspect}) Could not read directory: #{path}"
+    STDERR.puts "Could not read directory: #{path}\n#{e.message})"
   end
   files
 end
@@ -59,7 +65,7 @@ def main(args)
     if File.exist?(tofile) && (file[:link] || File.stat(tofile).size == file[:size])
       # Skip file when it already exists and is the same size
       # puts "Skipping #{tofile}..."
-      skip_count += 1
+      skip_count += 1 unless file[:link]
       next
     end
     puts "#{file[:name]} ==> #{tofile}"
@@ -68,11 +74,14 @@ def main(args)
     begin
       if file[:link]
         puts "Linking #{file[:name]} -> #{file[:link]}"
+        if file[:link].match(/^\//)
+          STDERR.puts "Cannot create sym-link to root level for #{file[:name]}"
+        end
         File.symlink(file[:link], file[:name])
         link_count += 1
       else
         # Copy the file
-        run("adb pull #{file[:name]} #{tofile}");
+        run("adb pull \"#{file[:name]}\" \"#{tofile}\"");
         File.utime(file[:time], file[:time], tofile)
         copy_count += 1
       end
@@ -84,7 +93,7 @@ def main(args)
     end
   end
   puts "Copied #{copy_count} files"
-  puts "Created #{link_count} links"
+  puts "Created #{link_count} links" if link_count > 1
   puts "Skipped #{skip_count} previously copied files" if skip_count > 0
   STDERR.puts "Failed to copy #{fail_count} files" if fail_count > 0
 end
