@@ -2,6 +2,7 @@ Miscellaneous Utilities
 ------------------------
 Random collection of scripts and utilities
 
+* adbsync - Use adb to recursively copy directories from Android device to local directory
 * detect-dup-words - Identify duplicate words in one or more text files. (E.g. 'It is that that good'.)
 * finddups - Quick and dirty search for duplicate files in a directory tree based on file name and size.
 * order-songs - Reorder freshly downloaded mp3 files into artist/album directory structure.
