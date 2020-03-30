@@ -1,5 +1,7 @@
 #!/bin/sh
 
 date
-upower -i /org/freedesktop/UPower/devices/line_power_ADP0 | grep 'online' | sed -e 's/online:   /plugged in:/'
-upower -i /org/freedesktop/UPower/devices/battery_BAT0 | grep -E "state|time to|percentage"
+for object in `upower -e | grep -vi display` ; do
+    echo "===> $object"
+    upower -i /org/freedesktop/UPower/devices/battery_BAT0 | grep -E "state|time to|percentage|online|capacity|vendor|model" | sed -e 's/online:   /plugged in:/'
+done
